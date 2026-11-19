@@ -1,0 +1,9 @@
+# Archivos generados por Maven
+/target/
+
+# Configuración local de IntelliJ
+/.idea/
+*.iml
+
+# Salidas locales de compilación
+/out/
