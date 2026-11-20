@@ -16,11 +16,9 @@ import javafx.scene.layout.VBox;
 import mx.uabc.algoritmos.modelo.Cancion;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
-/** Muestra las distribuciones de cuatro columnas visibles en el detalle del CSV. */
+/** Muestra las tres distribuciones gráficas solicitadas para las columnas del CSV. */
 public class PanelGraficasCsv extends GridPane {
 
     private static final int INTERVALOS_DURACION = 8;
@@ -30,9 +28,7 @@ public class PanelGraficasCsv extends GridPane {
             "Duración de las pistas", "Duración (minutos)", "Canciones"
     );
     private final PieChart graficaExplicita = new PieChart();
-    private final PieChart graficaAlbumes = new PieChart();
     private final Label resumenExplicita = new Label();
-    private final Label resumenAlbumes = new Label();
     private final BarChart<String, Number> graficaBailabilidad = crearGraficaBarras(
             "Bailabilidad de las pistas", "Puntuación de bailabilidad", "Canciones"
     );
@@ -52,31 +48,28 @@ public class PanelGraficasCsv extends GridPane {
         getColumnConstraints().addAll(columnaIzquierda, columnaDerecha);
 
         RowConstraints filaSuperior = new RowConstraints();
-        filaSuperior.setPercentHeight(50);
+        filaSuperior.setPercentHeight(48);
         filaSuperior.setVgrow(Priority.ALWAYS);
         RowConstraints filaInferior = new RowConstraints();
-        filaInferior.setPercentHeight(50);
+        filaInferior.setPercentHeight(52);
         filaInferior.setVgrow(Priority.ALWAYS);
         getRowConstraints().addAll(filaSuperior, filaInferior);
 
         graficaExplicita.setTitle("Contenido explícito");
         graficaExplicita.setLabelsVisible(false);
-        graficaAlbumes.setTitle("Álbumes de las pistas");
-        graficaAlbumes.setLabelsVisible(false);
         graficaDuracion.setPrefHeight(230);
         graficaBailabilidad.setPrefHeight(230);
 
         add(crearPanel(graficaDuracion), 0, 0);
         add(crearPanelCircular(graficaExplicita, resumenExplicita), 1, 0);
-        add(crearPanelCircular(graficaAlbumes, resumenAlbumes), 0, 1);
-        add(crearPanel(graficaBailabilidad), 1, 1);
+        // La gráfica inferior usa ambas columnas para tener espacio suficiente.
+        add(crearPanel(graficaBailabilidad), 0, 1, 2, 1);
     }
 
-    /** Actualiza las cuatro gráficas después de cargar el CSV. */
+    /** Actualiza las tres gráficas después de cargar el CSV. */
     public void mostrarDatos(List<Cancion> canciones) {
         mostrarDistribucionDuracion(canciones);
         mostrarDistribucionExplicita(canciones);
-        mostrarDistribucionAlbumes(canciones);
         mostrarDistribucionBailabilidad(canciones);
     }
 
@@ -208,44 +201,6 @@ public class PanelGraficasCsv extends GridPane {
         resumenExplicita.setText("true  " + formatoConteo(explicitas, canciones.size())
                 + "\nfalse " + formatoConteo(noExplicitas, canciones.size())
                 + "\nnull  " + formatoConteo(sinDato, canciones.size()));
-    }
-
-    private void mostrarDistribucionAlbumes(List<Cancion> canciones) {
-        Map<String, Integer> cantidadesPorAlbum = new HashMap<>();
-        int sinDato = 0;
-
-        for (Cancion cancion : canciones) {
-            String album = cancion.getSpotifyTrackAlbum();
-            if (album == null || album.isBlank()) {
-                sinDato++;
-            } else {
-                cantidadesPorAlbum.merge(album, 1, Integer::sum);
-            }
-        }
-
-        // Se conserva el álbum más frecuente y se agrupan los demás como en la vista resumida.
-        Map.Entry<String, Integer> albumMasFrecuente = cantidadesPorAlbum.entrySet().stream()
-                .max(Map.Entry.comparingByValue())
-                .orElse(null);
-        int otros = cantidadesPorAlbum.values().stream().mapToInt(Integer::intValue).sum();
-        List<PieChart.Data> porciones = new ArrayList<>();
-        agregarPorcion(porciones, "[null]", sinDato, canciones.size());
-        String albumPrincipal = "Sin álbum disponible";
-        int cantidadAlbumPrincipal = 0;
-
-        if (albumMasFrecuente != null) {
-            agregarPorcion(porciones, albumMasFrecuente.getKey(),
-                    albumMasFrecuente.getValue(), canciones.size());
-            albumPrincipal = albumMasFrecuente.getKey();
-            cantidadAlbumPrincipal = albumMasFrecuente.getValue();
-            otros -= albumMasFrecuente.getValue();
-        }
-        agregarPorcion(porciones, "Other", otros, canciones.size());
-        graficaAlbumes.setData(FXCollections.observableArrayList(porciones));
-        resumenAlbumes.setText("[null]  " + formatoConteo(sinDato, canciones.size())
-                + "\n" + albumPrincipal + "  "
-                + formatoConteo(cantidadAlbumPrincipal, canciones.size())
-                + "\nOther  " + formatoConteo(otros, canciones.size()));
     }
 
     private void agregarPorcion(List<PieChart.Data> porciones,
