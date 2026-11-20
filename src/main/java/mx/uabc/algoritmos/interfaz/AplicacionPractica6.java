@@ -11,6 +11,8 @@ import javafx.scene.control.Label;
 import javafx.scene.control.TextField;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
+import javafx.scene.control.Tab;
+import javafx.scene.control.TabPane;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.chart.BarChart;
 import javafx.scene.chart.CategoryAxis;
@@ -88,6 +90,7 @@ public class AplicacionPractica6 extends Application {
     private final NumberAxis ejeTiempo = new NumberAxis();
     private final BarChart<String, Number> graficaTiempos =
             new BarChart<>(ejeAlgoritmos, ejeTiempo);
+    private final PanelGraficasCsv panelGraficasCsv = new PanelGraficasCsv();
     private final Label estado = new Label("Carga las canciones para comenzar.");
     private final ComboBox<String> selectorColumna = new ComboBox<>();
     private final ComboBox<String> selectorAlgoritmo = new ComboBox<>();
@@ -126,21 +129,28 @@ public class AplicacionPractica6 extends Application {
         HBox panelResultados = new HBox(12, tablaResultados, graficaTiempos);
         HBox.setHgrow(tablaResultados, Priority.ALWAYS);
         HBox.setHgrow(graficaTiempos, Priority.ALWAYS);
+        Tab pestanaRendimiento = new Tab("Rendimiento", panelResultados);
+        Tab pestanaDatos = new Tab("Gráficas del CSV", panelGraficasCsv);
+        pestanaRendimiento.setClosable(false);
+        pestanaDatos.setClosable(false);
+        TabPane pestanasGraficas = new TabPane(pestanaRendimiento, pestanaDatos);
         VBox contenido = new VBox(12,
                 new Label("Billboard Hot 100 y Spotify"),
                 barraControles,
                 estado,
                 tablaCanciones,
-                new Label("Comparación de tiempos"),
-                panelResultados
+                pestanasGraficas
         );
         contenido.setStyle("-fx-padding: 16;");
         VBox.setVgrow(tablaCanciones, Priority.ALWAYS);
         tablaResultados.setPrefHeight(250);
         graficaTiempos.setPrefHeight(250);
+        pestanasGraficas.setPrefHeight(540);
 
-        Scene escena = new Scene(contenido, 1200, 800);
+        Scene escena = new Scene(contenido, 1200, 950);
         ventana.setTitle("Práctica 6 - Algoritmos de ordenamiento");
+        ventana.setMinWidth(1100);
+        ventana.setMinHeight(760);
         ventana.setScene(escena);
         ventana.show();
     }
@@ -203,6 +213,7 @@ public class AplicacionPractica6 extends Application {
             // Se guarda el orden original para que las comparaciones siempre partan de la misma entrada.
             cancionesOriginales = List.copyOf(canciones);
             tablaCanciones.setItems(FXCollections.observableArrayList(canciones));
+            panelGraficasCsv.mostrarDatos(canciones);
             estado.setText("Canciones cargadas: " + canciones.size());
             botonOrdenar.setDisable(false);
             botonComparar.setDisable(false);
