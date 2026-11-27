@@ -1,221 +1,279 @@
 package mx.uabc.algoritmos.interfaz;
 
 import javafx.collections.FXCollections;
+import javafx.geometry.Orientation;
+import javafx.scene.Node;
 import javafx.scene.chart.BarChart;
 import javafx.scene.chart.CategoryAxis;
 import javafx.scene.chart.NumberAxis;
 import javafx.scene.chart.PieChart;
 import javafx.scene.chart.XYChart;
 import javafx.scene.control.Label;
-import javafx.scene.layout.ColumnConstraints;
-import javafx.scene.layout.HBox;
-import javafx.scene.layout.GridPane;
 import javafx.scene.layout.Priority;
-import javafx.scene.layout.RowConstraints;
+import javafx.scene.layout.TilePane;
 import javafx.scene.layout.VBox;
 import mx.uabc.algoritmos.modelo.Cancion;
 
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
 
-/** Muestra las tres distribuciones gráficas solicitadas para las columnas del CSV. */
-public class PanelGraficasCsv extends GridPane {
+/** Crea una gráfica de distribución para cada columna del conjunto de canciones. */
+public class PanelGraficasCsv extends TilePane {
 
-    private static final int INTERVALOS_DURACION = 8;
-    private static final int INTERVALOS_BAILABILIDAD = 10;
+    private static final int INTERVALOS_NUMERICOS = 12;
+    private static final int CATEGORIAS_VISIBLES = 1;
+    private static final DateTimeFormatter FORMATO_FECHA = DateTimeFormatter.ofPattern("yyyy-MM");
 
-    private final BarChart<String, Number> graficaDuracion = crearGraficaBarras(
-            "Duración de las pistas", "Duración (minutos)", "Canciones"
-    );
-    private final PieChart graficaExplicita = new PieChart();
-    private final Label resumenExplicita = new Label();
-    private final BarChart<String, Number> graficaBailabilidad = crearGraficaBarras(
-            "Bailabilidad de las pistas", "Puntuación de bailabilidad", "Canciones"
+    private final List<DefinicionGrafica> definiciones = List.of(
+            categorica("ID de canción", Cancion::getSongId),
+            categorica("Artista", Cancion::getPerformer),
+            categorica("Canción", Cancion::getSong),
+            categorica("Género de Spotify", Cancion::getSpotifyGenre),
+            categorica("ID de pista", Cancion::getSpotifyTrackId),
+            categorica("URL de vista previa", Cancion::getSpotifyTrackPreviewUrl),
+            numerica("Duración de pista (minutos)", Cancion::getSpotifyTrackDurationMs,
+                    valor -> valor.doubleValue() / 60_000.0, "minutos"),
+            booleana("Contenido explícito", Cancion::getSpotifyTrackExplicit),
+            categorica("Álbum", Cancion::getSpotifyTrackAlbum),
+            numerica("Bailabilidad", Cancion::getDanceability, Number::doubleValue, "puntuación"),
+            numerica("Energía", Cancion::getEnergy, Number::doubleValue, "puntuación"),
+            numerica("Tonalidad", Cancion::getKey, Number::doubleValue, "valor"),
+            numerica("Volumen", Cancion::getLoudness, Number::doubleValue, "dB"),
+            numerica("Modo", Cancion::getMode, Number::doubleValue, "valor"),
+            numerica("Habla", Cancion::getSpeechiness, Number::doubleValue, "puntuación"),
+            numerica("Acústica", Cancion::getAcousticness, Number::doubleValue, "puntuación"),
+            numerica("Instrumentalidad", Cancion::getInstrumentalness, Number::doubleValue, "puntuación"),
+            numerica("Sonido en vivo", Cancion::getLiveness, Number::doubleValue, "puntuación"),
+            numerica("Valencia", Cancion::getValence, Number::doubleValue, "puntuación"),
+            numerica("Tempo", Cancion::getTempo, Number::doubleValue, "BPM"),
+            numerica("Compás", Cancion::getTimeSignature, Number::doubleValue, "valor"),
+            numerica("Popularidad de Spotify", Cancion::getSpotifyTrackPopularity,
+                    Number::doubleValue, "puntos"),
+            numerica("Mejor posición en Billboard", Cancion::getPeakPosition,
+                    Number::doubleValue, "posición"),
+            numerica("Semanas en Billboard", Cancion::getWeeksOnChart,
+                    Number::doubleValue, "semanas"),
+            fecha("Primera semana", Cancion::getFirstWeek),
+            fecha("Última semana", Cancion::getLastWeek),
+            categorica("Nivel de éxito", Cancion::getChartSuccessTier),
+            categorica("Perfil de duración del éxito", Cancion::getHitLongevityProfile),
+            categorica("Grupo de estado acústico", Cancion::getAcousticMoodCluster),
+            categorica("Época musical", Cancion::getMusicalEra),
+            categorica("Fragmento de evidencia", Cancion::getEvidenceSpan),
+            categorica("Justificación", Cancion::getCotRationale),
+            numerica("Puntaje de confianza", Cancion::getConfidenceScore,
+                    Number::doubleValue, "puntuación")
     );
 
     public PanelGraficasCsv() {
-        setHgap(12);
-        setVgap(12);
-        setMinHeight(500);
-        setPrefHeight(540);
-
-        ColumnConstraints columnaIzquierda = new ColumnConstraints();
-        columnaIzquierda.setPercentWidth(50);
-        columnaIzquierda.setHgrow(Priority.ALWAYS);
-        ColumnConstraints columnaDerecha = new ColumnConstraints();
-        columnaDerecha.setPercentWidth(50);
-        columnaDerecha.setHgrow(Priority.ALWAYS);
-        getColumnConstraints().addAll(columnaIzquierda, columnaDerecha);
-
-        RowConstraints filaSuperior = new RowConstraints();
-        filaSuperior.setPercentHeight(48);
-        filaSuperior.setVgrow(Priority.ALWAYS);
-        RowConstraints filaInferior = new RowConstraints();
-        filaInferior.setPercentHeight(52);
-        filaInferior.setVgrow(Priority.ALWAYS);
-        getRowConstraints().addAll(filaSuperior, filaInferior);
-
-        graficaExplicita.setTitle("Contenido explícito");
-        graficaExplicita.setLabelsVisible(false);
-        graficaDuracion.setPrefHeight(230);
-        graficaBailabilidad.setPrefHeight(230);
-
-        add(crearPanel(graficaDuracion), 0, 0);
-        add(crearPanelCircular(graficaExplicita, resumenExplicita), 1, 0);
-        // La gráfica inferior usa ambas columnas para tener espacio suficiente.
-        add(crearPanel(graficaBailabilidad), 0, 1, 2, 1);
+        setOrientation(Orientation.HORIZONTAL);
+        setHgap(14);
+        setVgap(14);
+        setPrefColumns(2);
+        setPrefTileWidth(500);
+        setPrefTileHeight(300);
+        setMinWidth(480);
+        setPrefWidth(1020);
     }
 
-    /** Actualiza las tres gráficas después de cargar el CSV. */
+    /** Recalcula las distribuciones de todas las columnas a partir de las canciones cargadas. */
     public void mostrarDatos(List<Cancion> canciones) {
-        mostrarDistribucionDuracion(canciones);
-        mostrarDistribucionExplicita(canciones);
-        mostrarDistribucionBailabilidad(canciones);
-    }
-
-    private VBox crearPanel(javafx.scene.Node grafica) {
-        VBox panel = new VBox(grafica);
-        GridPane.setHgrow(panel, Priority.ALWAYS);
-        GridPane.setVgrow(panel, Priority.ALWAYS);
-        VBox.setVgrow(grafica, Priority.ALWAYS);
-        return panel;
-    }
-
-    private VBox crearPanelCircular(PieChart grafica, Label resumen) {
-        resumen.setWrapText(true);
-        resumen.setMaxWidth(190);
-        resumen.setStyle("-fx-font-size: 12px;");
-        grafica.setMinSize(190, 180);
-        grafica.setPrefHeight(230);
-
-        HBox contenido = new HBox(8, grafica, resumen);
-        HBox.setHgrow(grafica, Priority.ALWAYS);
-        return crearPanel(contenido);
-    }
-
-    private BarChart<String, Number> crearGraficaBarras(
-            String titulo, String etiquetaHorizontal, String etiquetaVertical) {
-        CategoryAxis ejeHorizontal = new CategoryAxis();
-        ejeHorizontal.setLabel(etiquetaHorizontal);
-        ejeHorizontal.setTickLabelRotation(20);
-        NumberAxis ejeVertical = new NumberAxis();
-        ejeVertical.setLabel(etiquetaVertical);
-
-        BarChart<String, Number> grafica = new BarChart<>(ejeHorizontal, ejeVertical);
-        grafica.setTitle(titulo);
-        grafica.setLegendVisible(false);
-        grafica.setAnimated(false);
-        grafica.setMinHeight(220);
-        grafica.setPrefHeight(245);
-        return grafica;
-    }
-
-    private void mostrarDistribucionDuracion(List<Cancion> canciones) {
-        List<Double> valores = new ArrayList<>();
-        for (Cancion cancion : canciones) {
-            Long valor = cancion.getSpotifyTrackDurationMs();
-            if (valor != null) {
-                valores.add(valor / 60_000.0);
-            }
+        getChildren().clear();
+        for (DefinicionGrafica definicion : definiciones) {
+            getChildren().add(crearTarjeta(definicion, canciones));
         }
-        // Las canciones de más de ocho minutos se agrupan para que un valor extremo
-        // no comprima la distribución de las duraciones habituales.
-        mostrarHistograma(graficaDuracion, valores, 0, 8,
-                INTERVALOS_DURACION, true, " min");
     }
 
-    private void mostrarDistribucionBailabilidad(List<Cancion> canciones) {
-        List<Double> valores = new ArrayList<>();
+    private VBox crearTarjeta(DefinicionGrafica definicion, List<Cancion> canciones) {
+        List<Object> valores = new ArrayList<>();
+        int nulos = 0;
         for (Cancion cancion : canciones) {
-            Double valor = cancion.getDanceability();
-            if (valor != null) {
+            Object valor = definicion.obtenerValor().apply(cancion);
+            if (valor == null) {
+                nulos++;
+            } else {
                 valores.add(valor);
             }
         }
-        mostrarHistograma(graficaBailabilidad, valores, 0, 1,
-                INTERVALOS_BAILABILIDAD, false, "");
+
+        Node grafica = switch (definicion.tipo()) {
+            case NUMERICA -> crearHistogramaNumerico(definicion, valores);
+            case FECHA -> crearHistogramaFecha(definicion, valores);
+            case BOOLEANO -> crearGraficaBooleana(valores, nulos);
+            case CATEGORICA -> crearGraficaCategorica(valores, nulos);
+        };
+
+        Label resumen = new Label("Con dato: " + valores.size() + "    Sin dato: " + nulos);
+        resumen.setStyle("-fx-font-size: 11px; -fx-text-fill: #555555;");
+        VBox tarjeta = new VBox(5, new Label(definicion.titulo()), grafica, resumen);
+        tarjeta.setStyle("-fx-padding: 10; -fx-background-color: white; "
+                + "-fx-border-color: #d7dce2; -fx-border-radius: 4; -fx-background-radius: 4;");
+        tarjeta.setMinWidth(480);
+        tarjeta.setPrefWidth(500);
+        tarjeta.setPrefHeight(285);
+        VBox.setVgrow(grafica, Priority.ALWAYS);
+        return tarjeta;
     }
 
-    private void mostrarHistograma(BarChart<String, Number> grafica,
-                                   List<Double> valores,
-                                   double minimo, double maximo,
-                                   int cantidadIntervalos,
-                                   boolean agregarIntervaloSuperior,
-                                   String unidad) {
+    private Node crearHistogramaNumerico(DefinicionGrafica definicion, List<Object> valores) {
+        List<Double> numeros = new ArrayList<>();
+        for (Object valor : valores) {
+            numeros.add(definicion.convertirNumero().apply((Number) valor));
+        }
+        return crearHistograma(definicion.unidad(), numeros,
+                INTERVALOS_NUMERICOS, numero -> String.format("%.2f", numero));
+    }
+
+    private Node crearHistogramaFecha(DefinicionGrafica definicion, List<Object> valores) {
+        List<Double> dias = new ArrayList<>();
+        for (Object valor : valores) {
+            dias.add((double) ((LocalDate) valor).toEpochDay());
+        }
+        return crearHistograma("Canciones", dias,
+                INTERVALOS_NUMERICOS,
+                numero -> LocalDate.ofEpochDay(Math.round(numero)).format(FORMATO_FECHA));
+    }
+
+    private Node crearHistograma(String unidad, List<Double> valores,
+                                 int cantidadIntervalos,
+                                 Function<Double, String> formatoExtremo) {
+        CategoryAxis ejeX = new CategoryAxis();
+        ejeX.setLabel(unidad);
+        ejeX.setTickLabelRotation(25);
+        NumberAxis ejeY = new NumberAxis();
+        ejeY.setLabel("Canciones");
+        BarChart<String, Number> grafica = new BarChart<>(ejeX, ejeY);
+        grafica.setLegendVisible(false);
+        grafica.setAnimated(false);
+        grafica.setBarGap(1);
+        grafica.setCategoryGap(2);
+
         if (valores.isEmpty()) {
-            grafica.getData().clear();
-            return;
+            return grafica;
         }
 
-        double anchoIntervalo = (maximo - minimo) / cantidadIntervalos;
-        int cantidadBarras = cantidadIntervalos + (agregarIntervaloSuperior ? 1 : 0);
-        int[] cantidades = new int[cantidadBarras];
-
-        // Cada barra cuenta cuántas canciones tienen un valor dentro de su intervalo.
+        double minimo = valores.stream().mapToDouble(Double::doubleValue).min().orElseThrow();
+        double maximo = valores.stream().mapToDouble(Double::doubleValue).max().orElseThrow();
+        if (minimo == maximo) {
+            maximo = minimo + 1;
+        }
+        double ancho = (maximo - minimo) / cantidadIntervalos;
+        int[] conteos = new int[cantidadIntervalos];
         for (double valor : valores) {
-            int indice;
-            if (agregarIntervaloSuperior && valor > maximo) {
-                indice = cantidadIntervalos;
-            } else {
-                indice = (int) ((valor - minimo) / anchoIntervalo);
-                indice = Math.max(0, Math.min(indice, cantidadIntervalos - 1));
-            }
-            cantidades[indice]++;
+            int indice = (int) ((valor - minimo) / ancho);
+            conteos[Math.max(0, Math.min(indice, cantidadIntervalos - 1))]++;
         }
 
         XYChart.Series<String, Number> serie = new XYChart.Series<>();
         for (int i = 0; i < cantidadIntervalos; i++) {
-            double inicio = minimo + i * anchoIntervalo;
-            double fin = inicio + anchoIntervalo;
-            String intervalo = String.format("%.1f–%.1f%s", inicio, fin, unidad);
-            serie.getData().add(new XYChart.Data<>(intervalo, cantidades[i]));
+            double inicio = minimo + i * ancho;
+            double fin = i == cantidadIntervalos - 1 ? maximo : inicio + ancho;
+            String etiqueta = formatoExtremo.apply(inicio) + "–" + formatoExtremo.apply(fin);
+            serie.getData().add(new XYChart.Data<>(etiqueta, conteos[i]));
         }
-        if (agregarIntervaloSuperior) {
-            serie.getData().add(new XYChart.Data<>("> " + maximo + unidad,
-                    cantidades[cantidadIntervalos]));
-        }
-        grafica.getData().setAll(FXCollections.observableArrayList(serie));
+        grafica.getData().add(serie);
+        return grafica;
     }
 
-    private void mostrarDistribucionExplicita(List<Cancion> canciones) {
-        int explicitas = 0;
-        int noExplicitas = 0;
-        int sinDato = 0;
-
-        for (Cancion cancion : canciones) {
-            Boolean esExplicita = cancion.getSpotifyTrackExplicit();
-            if (esExplicita == null) {
-                sinDato++;
-            } else if (esExplicita) {
-                explicitas++;
+    private Node crearGraficaBooleana(List<Object> valores, int nulos) {
+        int verdaderos = 0;
+        int falsos = 0;
+        for (Object valor : valores) {
+            if (Boolean.TRUE.equals(valor)) {
+                verdaderos++;
             } else {
-                noExplicitas++;
+                falsos++;
             }
         }
 
-        List<PieChart.Data> porciones = new ArrayList<>();
-        agregarPorcion(porciones, "true", explicitas, canciones.size());
-        agregarPorcion(porciones, "false", noExplicitas, canciones.size());
-        agregarPorcion(porciones, "null", sinDato, canciones.size());
-        graficaExplicita.setData(FXCollections.observableArrayList(porciones));
-        resumenExplicita.setText("true  " + formatoConteo(explicitas, canciones.size())
-                + "\nfalse " + formatoConteo(noExplicitas, canciones.size())
-                + "\nnull  " + formatoConteo(sinDato, canciones.size()));
+        PieChart grafica = new PieChart();
+        grafica.setLabelsVisible(false);
+        agregarPorcion(grafica, "true", verdaderos);
+        agregarPorcion(grafica, "false", falsos);
+        agregarPorcion(grafica, "[null]", nulos);
+        return grafica;
     }
 
-    private void agregarPorcion(List<PieChart.Data> porciones,
-                                String nombre, int cantidad, int total) {
-        if (cantidad == 0 || total == 0) {
-            return;
+    private Node crearGraficaCategorica(List<Object> valores, int nulos) {
+        Map<String, Integer> frecuencias = new HashMap<>();
+        for (Object valor : valores) {
+            frecuencias.merge(valor.toString(), 1, Integer::sum);
         }
-        porciones.add(new PieChart.Data(nombre, cantidad));
+
+        List<Map.Entry<String, Integer>> categoriasFrecuentes = frecuencias.entrySet().stream()
+                .sorted(Map.Entry.<String, Integer>comparingByValue(Comparator.reverseOrder())
+                        .thenComparing(Map.Entry.comparingByKey()))
+                .limit(CATEGORIAS_VISIBLES)
+                .toList();
+        int otros = valores.size();
+
+        PieChart grafica = new PieChart();
+        grafica.setLabelsVisible(false);
+        if (nulos > 0) {
+            agregarPorcion(grafica, "[null]", nulos);
+        }
+        for (Map.Entry<String, Integer> categoria : categoriasFrecuentes) {
+            String etiqueta = acortar(categoria.getKey(), 24);
+            agregarPorcion(grafica, etiqueta, categoria.getValue());
+            otros -= categoria.getValue();
+        }
+        if (otros > 0) {
+            agregarPorcion(grafica, "Other", otros);
+        }
+        return grafica;
     }
 
-    private String formatoConteo(int cantidad, int total) {
-        if (total == 0) {
-            return "0 (0.0%)";
+    private String acortar(String texto, int maximo) {
+        if (texto.length() <= maximo) {
+            return texto;
         }
-        double porcentaje = 100.0 * cantidad / total;
-        return String.format("%d (%.1f%%)", cantidad, porcentaje);
+        return texto.substring(0, maximo - 1) + "…";
+    }
+
+    private void agregarPorcion(PieChart grafica, String etiqueta, int cantidad) {
+        if (cantidad > 0) {
+            grafica.getData().add(new PieChart.Data(etiqueta, cantidad));
+        }
+    }
+
+    private static DefinicionGrafica categorica(
+            String titulo, Function<Cancion, ?> obtenerValor) {
+        return new DefinicionGrafica(titulo, TipoDato.CATEGORICA,
+                cancion -> obtenerValor.apply(cancion), null, "categorías");
+    }
+
+    private static DefinicionGrafica booleana(
+            String titulo, Function<Cancion, Boolean> obtenerValor) {
+        return new DefinicionGrafica(titulo, TipoDato.BOOLEANO,
+                cancion -> obtenerValor.apply(cancion), null, "valores");
+    }
+
+    private static DefinicionGrafica numerica(
+            String titulo, Function<Cancion, ? extends Number> obtenerValor,
+            Function<Number, Double> convertir, String unidad) {
+        return new DefinicionGrafica(titulo, TipoDato.NUMERICA,
+                cancion -> obtenerValor.apply(cancion), convertir, unidad);
+    }
+
+    private static DefinicionGrafica fecha(
+            String titulo, Function<Cancion, LocalDate> obtenerValor) {
+        return new DefinicionGrafica(titulo, TipoDato.FECHA,
+                cancion -> obtenerValor.apply(cancion), null, "fechas");
+    }
+
+    private enum TipoDato {
+        NUMERICA, FECHA, BOOLEANO, CATEGORICA
+    }
+
+    private record DefinicionGrafica(String titulo, TipoDato tipo,
+                                     Function<Cancion, Object> obtenerValor,
+                                     Function<Number, Double> convertirNumero,
+                                     String unidad) {
     }
 }
